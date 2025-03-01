@@ -1,53 +1,55 @@
-#Parham Pahlavan CS422 1002
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import KFold
 from sklearn.metrics import root_mean_squared_error
-from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 
+# Load dataset
 data = pd.read_csv('housing_price_dataset.csv')
 
-#convert to nominal
+# Encode categorical variable 'Neighborhood' into numerical values
 le = LabelEncoder()
-label = le.fit_transform(data['Neighborhood'])
+data["Neighborhood"] = le.fit_transform(data["Neighborhood"])
 
-#replace with int
-data.drop("Neighborhood", axis=1, inplace=True)
-data["Neighborhood"] = label
+# Separate target variable (Price) and features
+y_values = data['Price']
+x_values = data.drop('Price', axis=1)
 
-yValues = data['Price']
-xValues = data.drop('Price', axis = 1)
-scalerInst = StandardScaler()
-xScaled = scalerInst.fit_transform(xValues)
+# Standardize feature values for better model performance
+scaler = StandardScaler()
+x_scaled = scaler.fit_transform(x_values)
 
-regressionModel = LinearRegression()
+# Initialize linear regression model
+regression_model = LinearRegression()
 
-#kfold
+# Initialize K-Fold cross-validation with 10 splits
 kf = KFold(n_splits=10)
 
-#final result array
-headers = ['feature1', 'feature2', 'feature3','feature4','feature5', 'RMSE', 'R2']
-finalResult = pd.DataFrame(columns=headers)
+# DataFrame to store results of each fold
+headers = ['feature1', 'feature2', 'feature3', 'feature4', 'feature5', 'RMSE', 'R2']
+final_result = pd.DataFrame(columns=headers)
 
+# Perform K-Fold cross-validation
+for train_index, test_index in kf.split(x_scaled):
+    # Split data into training and testing sets
+    x_train, x_test = x_scaled[train_index], x_scaled[test_index]
+    y_train, y_test = y_values.iloc[train_index], y_values.iloc[test_index]
 
-#calculating the features' coefficients and RMSE and R2 (score) for each of the folds
-#in the following loop
-for trainIndex, testIndex in kf.split(xScaled):
-    xTrain, xTest = xScaled[trainIndex], xScaled[testIndex]
-    yTrain, yTest = yValues[trainIndex], yValues[testIndex]
+    # Train the model
+    regression_model.fit(x_train, y_train)
 
-    #training the model
-    regressionModel.fit(xTrain, yTrain)
+    # Predict target values for test set
+    y_prediction = regression_model.predict(x_test)
 
-    #predicting and testing accuracy
-    yPrediction = regressionModel.predict(xTest)
-    rootMeanSquareError = root_mean_squared_error(yTest, yPrediction)
-    finalResult.loc[len(finalResult), 'feature1':'feature5'] = regressionModel.coef_
-    finalResult.loc[len(finalResult) - 1, 'RMSE'] = rootMeanSquareError
-    finalResult.loc[len(finalResult) - 1, 'R2'] = regressionModel.score(xTest, yTest)
+    # Calculate evaluation metrics
+    rmse = root_mean_squared_error(y_test, y_prediction)
+    r2_score = regression_model.score(x_test, y_test)
 
+    # Store coefficients and evaluation metrics in results DataFrame
+    final_result.loc[len(final_result), 'feature1':'feature5'] = regression_model.coef_
+    final_result.loc[len(final_result) - 1, 'RMSE'] = rmse
+    final_result.loc[len(final_result) - 1, 'R2'] = r2_score
 
-#printing the results
+# Display results with all columns
 pd.set_option('display.max_columns', None)
-print(finalResult)
+print(final_result)
